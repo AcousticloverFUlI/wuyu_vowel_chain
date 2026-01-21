@@ -8,20 +8,35 @@ DATA_RAW = PROJECT_ROOT / "data_raw"
 DATA_CLEAN = PROJECT_ROOT / "data_clean"
 DATA_DICT = PROJECT_ROOT / "data_dict"
 
-# === 读入原始温州数据 ===
-raw_path = DATA_RAW / "wenzhou_raw.csv"
-df = pd.read_csv(raw_path)
+# === 读入原始数据（每个方言点一个 CSV） ===
+# 约定原始文件路径为 data_raw/points/*.csv
+raw_dir = DATA_RAW / "points"
+raw_files = sorted(raw_dir.glob("*.csv"))
+if raw_files:
+    df_list = [pd.read_csv(p) for p in raw_files]
+    df = pd.concat(df_list, ignore_index=True)
+else:
+    # 兼容旧的单文件输入
+    raw_path = DATA_RAW / "wuyu_raw.csv"
+    if not raw_path.exists():
+        raise FileNotFoundError(
+            f"未找到原始数据：请放在 {raw_dir}/*.csv 或 {raw_path}"
+        )
+    df = pd.read_csv(raw_path)
 
 # 过滤掉不是数据的行：只保留“韵”和“声组”都有值的
+required_base_cols = ["韵", "声组", "汉字", "读音"]
+missing_base_cols = [c for c in required_base_cols if c not in df.columns]
+if missing_base_cols:
+    raise ValueError(f"缺少基础列：{missing_base_cols}，请确认原始数据列名")
 df = df[df["韵"].notna() & df["声组"].notna()]
 df = df[df["韵"] != "韵"]   # 防止表头之类被重复读进来
 
-# === 方言点基础信息（温州专用） ===
-df["point_id"] = "WZ01"
-df["point_name"] = "温州"
-df["subbranch"] = "瓯江片"
-df["lat"] = None   # 之后你可以手动填
-df["lon"] = None
+# === 方言点基础信息（来自原始数据列） ===
+required_point_cols = ["point_id", "point_name", "subbranch", "lat", "lon"]
+missing_point_cols = [c for c in required_point_cols if c not in df.columns]
+if missing_point_cols:
+    raise ValueError(f"缺少方言点列：{missing_point_cols}，请在原始数据中提供")
 
 # === 读入韵部→slot mapping ===
 rhyme_map = pd.read_csv(DATA_DICT / "rhyme_slot_mapping.csv")
@@ -38,13 +53,11 @@ df = df.merge(
 df["onset_class"] = df["声组"]
 
 # === 重命名例字 & 读音列 ===
-# 假设第四列叫“读音”，如果你实际列名是“瓯江片”，就在这里改
+# 单文件多方言点模式下，统一使用“读音”列
 if "读音" in df.columns:
     df = df.rename(columns={"汉字": "char", "读音": "phonetic"})
-elif "瓯江片" in df.columns:
-    df = df.rename(columns={"汉字": "char", "瓯江片": "phonetic"})
 else:
-    raise ValueError("没找到读音那一列，请确认列名（例如 '读音' 或 '瓯江片'）")
+    raise ValueError("没找到读音列，请确认列名为 '读音'")
 
 # === 提取元音符号（粗略版） ===
 VOWEL_PATTERN = r"[aeiouAEIOUɤɔøœəɯɐʌyɨ]+"
@@ -87,7 +100,7 @@ df_clean = df[cols_order].copy()
 
 # === 导出 ===
 DATA_CLEAN.mkdir(exist_ok=True)
-out_path = DATA_CLEAN / "wenzhou_lexeme.csv"
+out_path = DATA_CLEAN / "wuyu_lexeme.csv"
 df_clean.to_csv(out_path, index=False, encoding="utf-8")
 
 print("✅ 温州清洗完成：", out_path)
