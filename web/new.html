@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吴语太湖片元音后高化链式应变的微观类型学研究 - 论文进度看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .academic-title { font-family: 'Noto Serif SC', serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <header class="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-6 mb-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="academic-title text-2xl text-slate-900">吴语太湖片元音后高化链式应变的微观类型学：数据采集看板</h1>
+                    <p class="text-sm text-slate-500 mt-1">当前阶段：县级市方言点语料穷尽式整理</p>
+                </div>
+                <div class="w-full md:w-80">
+                    <div class="flex justify-between text-xs font-bold mb-2">
+                        <span class="text-indigo-600 uppercase tracking-wider">Data Collection Progress</span>
+                        <span id="progress-text" class="text-slate-700">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 h-2.5 rounded-full">
+                        <div id="progress-bar" class="bg-indigo-600 h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(79,70,229,0.4)]" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <section class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h2 class="font-bold text-lg flex items-center gap-2">
+                        <span class="w-2 h-6 bg-indigo-600 rounded-full"></span>
+                        方言点详细清单 (County-level Points)
+                    </h2>
+                    <span class="text-xs text-slate-400">已选 <span id="checked-count" class="font-bold text-indigo-600">0</span> / 总计 <span id="total-count">0</span></span>
+                </div>
+                
+                <div class="p-2 h-[700px] overflow-y-auto custom-scrollbar bg-slate-50/30">
+                    <div id="dialect-list" class="space-y-4 p-4">
+                        </div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="font-bold text-lg mb-4">算法模型</h2>
+                <div class="space-y-4">
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-700 mb-1">蚁群算法</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed">算法核心：根据结果模拟过程（中古——各个方言格局），每一个字就类似一只蚂蚁，在各个方言中走向不同的方向，难度会比焦磊复杂很多</p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-700 mb-1">鸟群算法/谱系树算法</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed">Alternative</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="font-bold text-lg mb-4">📅 Meeting Schedule</h2>
+                <div class="relative pl-6 border-l-2 border-slate-100 space-y-6">
+                    <div class="relative">
+                        <span class="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-indigo-600 border-4 border-white"></span>
+                        <p class="text-xs font-bold text-indigo-600 uppercase">Next Briefing</p>
+                        <p class="text-sm font-semibold">算法面谈</p>
+                        <p class="text-xs text-slate-400">2026-03-??</p>
+                        <p class="text-sm font-semibold">材料缺失面谈</p>
+                        <p class="text-xs text-slate-400">2026-03-??</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+ <script>
+    // 1. 方言点原始数据（保持不变）
+    const data = {
+        "郎溪": ["定埠"],
+        "常州市": ["武进区/刘沐阳论文", "城区", "金坛区", "溧阳市"],
+        "镇江市": ["丹阳市"],
+        "无锡市": ["市区", "无锡县(锡山/惠山)", "江阴市", "宜兴市"],
+        "苏州市": ["市区", "吴中区/相城区(光福镇)", "常熟市(虞山镇)", "常熟梅李方言", "常熟谢桥镇", "昆山市", "吴江区", "吴江芦墟方言", "吴江盛泽镇", "太仓市", "太仓沙溪", "张家港"],
+        "南通市": ["金沙", "启东吕四", "海门沙地", "海门四甲", "通州"],
+        "上海市": ["上海市区", "闵行(莘庄)", "闵行七宝", "宝山区", "嘉定区", "华亭镇", "川沙/浦东", "金山区", "松江区", "青浦商榻", "惠南镇", "奉贤区", "崇明区"],
+        "嘉兴市": ["嘉兴市区", "嘉善县", "海盐县", "平湖市(需拍县志)", "海宁硤石", "海宁盐官", "桐乡市", "崇德"],
+        "杭州市": ["市区", "余杭区", "临安区", "於潜", "昌化", "富阳区", "富阳东梓关", "新登", "桐庐", "萧山区"],
+        "湖州市": ["市区", "吴兴", "德清", "武康", "长兴", "安吉", "孝丰"],
+        "绍兴市": ["市区", "柯桥", "上虞", "诸暨", "嵊州", "新昌"],
+        "宁波市": ["市区", "鄞州", "奉化", "余姚", "慈溪", "慈溪逍林", "宁海", "象山", "镇海北仑"],
+        "舟山市": ["市区", "定海", "普陀", "岱山", "嵊泗"]
+    };
+
+    const listContainer = document.getElementById('dialect-list');
+    let totalItems = 0;
+
+    // 2. 初始化列表
+    function initList() {
+        // 从本地存储读取已保存的进度
+        const savedProgress = JSON.parse(localStorage.getItem('thesis_dialect_progress')) || {};
+
+        for (const city in data) {
+            const group = document.createElement('div');
+            group.className = "mb-6 bg-white border border-slate-100 rounded-xl p-4";
+            
+            let html = `<h3 class="text-sm font-bold text-slate-400 mb-3 flex items-center gap-2 uppercase tracking-widest underline decoration-indigo-200 decoration-4 underline-offset-4">${city}</h3>`;
+            html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">`;
+            
+            data[city].forEach(point => {
+                totalItems++;
+                // 为每个方言点生成唯一ID（城市+名称）
+                const uniqueId = `${city}-${point}`;
+                const isChecked = savedProgress[uniqueId] ? 'checked' : '';
+                
+                html += `
+                    <label class="flex items-center p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
+                        <input type="checkbox" 
+                               id="${uniqueId}" 
+                               class="dialect-checkbox w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                               ${isChecked}>
+                        <span class="ml-3 text-sm text-slate-600 group-hover:text-slate-900">${point}</span>
+                    </label>
+                `;
+            });
+            
+            html += `</div>`;
+            group.innerHTML = html;
+            listContainer.appendChild(group);
+        }
+        document.getElementById('total-count').innerText = totalItems;
+        updateProgress(false); // 初始化进度条，不触发重复保存
+    }
+
+    // 3. 更新进度并保存到本地
+    function updateProgress(shouldSave = true) {
+        const checkboxes = document.querySelectorAll('.dialect-checkbox');
+        const checkedBoxes = document.querySelectorAll('.dialect-checkbox:checked');
+        const checkedCount = checkedBoxes.length;
+        const percentage = Math.round((checkedCount / totalItems) * 100);
+        
+        // 更新 UI
+        document.getElementById('progress-bar').style.width = percentage + '%';
+        document.getElementById('progress-text').innerText = percentage + '%';
+        document.getElementById('checked-count').innerText = checkedCount;
+
+        // 4. 保存状态逻辑
+        if (shouldSave) {
+            const progressStatus = {};
+            checkboxes.forEach(cb => {
+                progressStatus[cb.id] = cb.checked;
+            });
+            localStorage.setItem('thesis_dialect_progress', JSON.stringify(progressStatus));
+        }
+    }
+
+    // 监听点击事件
+    listContainer.addEventListener('change', (e) => {
+        if (e.target.classList.contains('dialect-checkbox')) {
+            updateProgress();
+        }
+    });
+
+    initList();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&family=Inter:wght@400;600&display=swap');
+        .academic-font { font-family: 'Noto Serif SC', serif; }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 p-8">
+
+    <header class="max-w-6xl mx-auto mb-10">
+        <h1 class="academic-font text-3xl mb-4">吴语音韵演变研究：毕业论文进度看板</h1>
+        <div class="flex items-center gap-4">
+            <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden">
+                <div class="bg-indigo-600 h-full w-[45%]"></div> </div>
+            <span class="text-sm font-semibold">45% 已完成</span>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">📊 数据统计</h2>
+            <div class="mb-6 h-40 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 italic">
+                Forest 学习时长统计占位图
+            </div>
+            <h3 class="text-sm font-semibold mb-2">方言点数据整理</h3>
+            <ul class="text-sm space-y-2">
+                <li class="flex justify-between"><span>CZ01_常州市区</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>DB01_郎溪定埠</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>DY01_丹阳市区</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>JJ01_靖江市区</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>JT01_常州金坛</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>JY01_江阴市区</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>SH01_上海市区</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>LY01_溧阳</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>NT01_南通金沙</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>QD01_启东吕四</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>YX01_宜兴宜城</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>CS01_浦东川沙</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>CS02_常熟虞山</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>FY01_富阳城关</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>HM01_海门沙地</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>HN01_海宁城关</span><span class="text-green-600">● 已完成</span></li>
+                <li class="flex justify-between"><span>苏州 (SZ)</span><span class="text-amber-500">○ 提取中</span></li>
+
+            </ul>
+        </section>
+
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-lg font-bold mb-4">🧠 算法模型思考</h2>
+            <article class="prose prose-sm text-slate-600">
+                <p class="mb-3 italic border-l-4 border-indigo-500 pl-3">基于元音链移的声学空间分析...</p>
+                <p>当前思考：F1/F2 归一化算法在处理老年发音人数据时的偏差校准。</p>
+            </article>
+        </section>
+
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-lg font-bold mb-4">📅 Meeting 安排</h2>
+            <div class="space-y-4">
+                <div class="p-3 bg-indigo-50 rounded-lg">
+                    <p class="text-xs text-indigo-600 font-bold uppercase">Next Meeting</p>
+                    <p class="text-sm font-medium text-slate-800">2026-03-02 14:00</p>
+                    <p class="text-xs text-slate-500">汇报内容：方言点 A/B 组对比结果</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+</body>
+</html>
