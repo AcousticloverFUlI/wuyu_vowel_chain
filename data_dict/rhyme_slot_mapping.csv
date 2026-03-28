@@ -5,5 +5,5 @@ rhyme,chain_slot,slot_type_initial,is_free
 模,S3,*u,0
 侯,S4,*əu,0
 豪,S5,*au,0
-佳,F,*ai,1
-皆,F,*ai,1
+佳,S0,*ai,0
+皆,S0,*ai,0

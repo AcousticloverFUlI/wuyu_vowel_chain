@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>吴语元音高化链变可视化 - 微观类型学分析</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background-color: #f9f9f9; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .controls { margin-bottom: 25px; padding: 15px; background: #f0f4f8; border-radius: 8px; }
+        #chart-container { width: 100%; overflow-x: auto; }
+        .axis-label { font-size: 13px; font-weight: bold; }
+        .dot { stroke: #fff; stroke-width: 1px; opacity: 0.8; transition: opacity 0.2s, r 0.2s; cursor: pointer; }
+        .dot:hover { opacity: 1; r: 8px; }
+        .tooltip { position: absolute; padding: 10px; background: rgba(0,0,0,0.8); color: white; border-radius: 4px; pointer-events: none; font-size: 12px; display: none; z-index: 10; }
+        .legend-item { display: inline-block; margin-right: 20px; font-size: 14px; }
+        .legend-color { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>吴语元音后高化链变分析 (微观类型学视角)</h2>
+    <p style="font-size: 14px; color: #666;">
+        说明：本工具仅提取 <b>歌、戈、麻、模</b> 四类韵部。评分逻辑：低元音(1.0) → 高元音(5.0) → 复元音/出链(6.0-7.0)。
+    </p>
+
+    <div class="controls">
+        <strong>第一步：选择您的 CSV 数据文件</strong> 
+        <input type="file" id="csvFile" accept=".csv" />
+    </div>
+
+    <div id="legend" style="margin-bottom: 15px;"></div>
+    <div id="chart-container">
+        <div id="chart"></div>
+    </div>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+    // 1. 定义演化位阶评分 (复元音 > 高元音 u)
+    const evolutionaryMap = {
+        'iəu': 7.0, 'iøʔ': 6.5, 'əu': 6.0, // 出链/裂化 
+        'u': 5.0,                         // 高顶 [cite: 6, 67]
+        'ʊ': 4.0,                         // 半高
+        'o': 3.5, 'ɒ': 3.0, 'ɔ': 3.0,     // 中位
+        'ɛ': 2.0, 'ɐ': 1.5,
+        'a': 1.0, 'ia': 1.0, 'iɒ': 1.0    // 低位
+    };
+
+    // 2. 初始高度基准 (基于中古拟音) [cite: 6, 124]
+    const initialStages = { "麻": 1.0, "歌": 3.0, "戈": 3.0, "模": 5.0 };
+    const colorScale = d3.scaleOrdinal()
+        .domain(["麻", "歌", "戈", "模"])
+        .range(["#e74c3c", "#3498db", "#2980b9", "#f1c40f"]);
+
+    const tooltip = d3.select("#tooltip");
+
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const rawData = d3.csvParse(event.target.result);
+            renderChart(rawData);
+        };
+        reader.readAsText(file);
+    });
+
+    function renderChart(csvData) {
+        d3.select("#chart").selectAll("*").remove();
+        d3.select("#legend").selectAll("*").remove();
+
+        // 3. 数据清洗与白读优先逻辑 [cite: 132, 135]
+        const processed = csvData.filter(d => ["歌", "戈", "麻", "模"].includes(d.韵))
+            .map(d => {
+                let finalPron = "";
+                const prons = d.读音 ? d.读音.split('/').map(s => s.trim()) : [];
+                const notes = d.note ? d.note.split('/').map(s => s.trim()) : [];
+                
+                // 查找 note 中是否有“白读”标志
+                const baiIndex = notes.findIndex(n => n.includes("白读"));
+                if (baiIndex !== -1 && prons[baiIndex]) {
+                    finalPron = prons[baiIndex];
+                } else {
+                    finalPron = prons[0] || "";
+                }
+
+                const currentScore = evolutionaryMap[finalPron] || null;
+                const initialScore = initialStages[d.韵];
+
+                return {
+                    point: d.point_name,
+                    rhyme: d.韵,
+                    onset: d.声组,
+                    char: d.汉字,
+                    pron: finalPron,
+                    score: currentScore,
+                    raising: currentScore ? (currentScore - initialScore) : 0
+                };
+            }).filter(d => d.score !== null);
+
+        if (processed.length === 0) {
+            alert("未在CSV中找到匹配的‘歌/戈/麻/模’韵部数据，请检查文件格式。");
+            return;
+        }
+
+        // 4. 画布设置
+        const margin = {top: 50, right: 100, bottom: 80, left: 80},
+              width = 900 - margin.left - margin.right,
+              height = 500 - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // X轴：声组 (用于推导蕴含序列) [cite: 153]
+        const xOnsets = [...new Set(processed.map(d => d.onset))].sort();
+        const x = d3.scaleBand()
+            .domain(xOnsets)
+            .range([0, width])
+            .padding(0.4);
+
+        // Y轴：演化得分 (1-7分)
+        const y = d3.scaleLinear()
+            .domain([0.5, 7.5])
+            .range([height, 0]);
+
+        // 5. 绘制参考线 (初始高度)
+        Object.keys(initialStages).forEach(key => {
+            if (key === "戈") return; // 戈与歌合并显示
+            svg.append("line")
+                .attr("x1", 0).attr("x2", width)
+                .attr("y1", y(initialStages[key]))
+                .attr("y2", y(initialStages[key]))
+                .attr("stroke", colorScale(key))
+                .attr("stroke-dasharray", "4,4")
+                .style("opacity", 0.5);
+            
+            svg.append("text")
+                .attr("x", width + 5)
+                .attr("y", y(initialStages[key]) + 5)
+                .attr("fill", colorScale(key))
+                .style("font-size", "11px")
+                .text(`${key}韵基准(${initialStages[key]})`);
+        });
+
+        // 绘制坐标轴
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x))
+            .selectAll("text")
+            .attr("class", "axis-label");
+
+        svg.append("g").call(d3.axisLeft(y));
+
+        svg.append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", -50)
+            .attr("x", -height/2)
+            .attr("text-anchor", "middle")
+            .style("font-size", "12px")
+            .text("演化位阶评分 (高度/裂化度)");
+
+        // 6. 绘制点
+        svg.selectAll(".dot")
+            .data(processed)
+            .enter().append("circle")
+            .attr("class", "dot")
+            .attr("r", 6)
+            .attr("cx", d => x(d.onset) + x.bandwidth() / 2 + (Math.random()-0.5)*20) // 随机抖动避免重叠
+            .attr("cy", d => y(d.score))
+            .style("fill", d => colorScale(d.rhyme))
+            .on("mouseover", function(event, d) {
+                tooltip.style("display", "block")
+                    .html(`
+                        <strong>例字:</strong> ${d.char}<br>
+                        <strong>声组:</strong> ${d.onset}<br>
+                        <strong>韵部:</strong> ${d.rhyme}<br>
+                        <strong>当前读音:</strong> [${d.pron}]<br>
+                        <strong>得分:</strong> ${d.score}<br>
+                        <strong>相对位移:</strong> +${d.raising.toFixed(1)}
+                    `);
+            })
+            .on("mousemove", function(event) {
+                tooltip.style("top", (event.pageY - 10) + "px")
+                       .style("left", (event.pageX + 10) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.style("display", "none");
+            });
+
+        // 7. 生成图例
+        const legend = d3.select("#legend");
+        ["麻", "歌", "模"].forEach(rhyme => {
+            const item = legend.append("div").attr("class", "legend-item");
+            item.append("span").attr("class", "legend-color").style("background", colorScale(rhyme));
+            item.append("span").text(rhyme + "韵");
+        });
+    }
+</script>
+
+</body>
+</html>
