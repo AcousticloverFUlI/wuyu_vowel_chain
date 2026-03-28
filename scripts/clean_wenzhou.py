@@ -103,5 +103,5 @@ DATA_CLEAN.mkdir(exist_ok=True)
 out_path = DATA_CLEAN / "wuyu_lexeme.csv"
 df_clean.to_csv(out_path, index=False, encoding="utf-8")
 
-print("✅ 温州清洗完成：", out_path)
+print("✅ 数据清洗完成：", out_path)
 print(df_clean.head())
