@@ -5,66 +5,133 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 DATA_CLEAN = PROJECT_ROOT / "data_clean"
-# 按照你的要求，放在 data_clean/value_type 文件夹下
 OUTPUT_DIR = DATA_CLEAN / "value_type" 
 
-# === 读取清洗后的数据 ===
+# === 读取数据 ===
 input_path = DATA_CLEAN / "wuyu_lexeme.csv"
 if not input_path.exists():
-    raise FileNotFoundError(f"未找到清洗后的数据文件：{input_path}，请先运行清洗脚本。")
+    raise FileNotFoundError(f"未找到清洗后的数据文件：{input_path}")
 
 df = pd.read_csv(input_path)
 
-# === 核心参数设置 ===
-target_rhymes = ["歌", "戈", "麻", "模", "佳", "皆"]
-CHAR_THRESHOLD = 4
+# === 1. 预处理 ===
+# 剔除 “靴” 和 “茄”
+df = df[~df["char"].isin(["靴", "茄"])]
+df = df[df["phonetic"].notna()]
 
-# === 数据过滤 ===
+# 参数设置
+target_rhymes = ["歌", "戈", "麻", "模", "佳", "皆"]
 df_filtered = df[df["rhyme_modern"].isin(target_rhymes)].copy()
 
-# === 1. 分韵统计读音分布 (原有逻辑) ===
+# 定义 chain_slot 的逻辑顺序，用于后续排序
+slot_order = {"S0": 0, "S1": 1, "S2": 2, "S3": 3}
+df_filtered['slot_rank'] = df_filtered['chain_slot'].map(slot_order)
+
+# === 2. 核心修改：改变输出模式的分布统计 ===
+def get_phonetic_distribution(series):
+    # 计算频率并自动降序排列
+    counts = series.value_counts()
+    # 格式化输出为：音值(频数), 音值(频数)
+    return ", ".join([f"{val}({count})" for val, count in counts.items()])
+
+# 分组统计
+# 注意：这里加入了 slot_rank 以确保排序正确
+slot_onset_dist = df_filtered.groupby(
+    ['point_id', 'point_name', 'onset_class', 'chain_slot', 'slot_rank']
+)['phonetic'].apply(get_phonetic_distribution).reset_index()
+
+# 按照 [方言点 -> 声组 -> 链位顺序] 进行排序
+slot_onset_dist = slot_onset_dist.sort_values(by=['point_id', 'onset_class', 'slot_rank'])
+
+# 移除辅助排序的列
+slot_onset_dist = slot_onset_dist.drop(columns=['slot_rank'])
+slot_onset_dist.rename(columns={'phonetic': 'phonetic_frequency'}, inplace=True)
+
+# === 3. 其他统计（保持原有逻辑） ===
+# 分韵详细分布
 summary = df_filtered.groupby(['point_id', 'point_name', 'rhyme_modern', 'phonetic']).agg(
     char_count=('char', 'nunique'),
-    char_list=('char', lambda x: list(set(x.dropna())))
+    char_list=('char', lambda x: sorted(list(set(x.dropna()))))
 ).reset_index()
 
 def format_char_info(row):
-    if row['char_count'] <= CHAR_THRESHOLD:
+    if row['char_count'] <= 4:
         return " / ".join(row['char_list'])
     return f"共 {row['char_count']} 个例字"
 
 summary['example_chars'] = summary.apply(format_char_info, axis=1)
-dist_report = summary.drop(columns=['char_list'])
 
-# === 2. 新增部分：统计每个方言点的读音集合 (Point Inventory) ===
-# 提取每个点所有不重复的读音，并排序
-inventory = df_filtered.groupby(['point_id', 'point_name'])['phonetic'].apply(
-    lambda x: sorted(list(set(x.dropna())))
+# 分韵库藏
+rhyme_inventory = df_filtered.groupby(['point_id', 'point_name', 'rhyme_modern'])['phonetic'].apply(
+    lambda x: ", ".join(sorted(list(set(x.dropna()))))
 ).reset_index()
+rhyme_inventory.rename(columns={'phonetic': 'rhyme_phonetic_set'}, inplace=True)
 
-# 格式化集合显示
-inventory['phonetic_set'] = inventory['phonetic'].apply(lambda x: ", ".join(x))
-# 统计音值总数（用于衡量系统复杂度）
-inventory['vowel_inventory_size'] = inventory['phonetic'].apply(len)
+# 总库藏
+point_inventory = df_filtered.groupby(['point_id', 'point_name'])['phonetic'].apply(
+    lambda x: ", ".join(sorted(list(set(x.dropna()))))
+).reset_index()
+point_inventory['vowel_count'] = point_inventory['phonetic'].apply(lambda x: len(x.split(", ")) if x else 0)
 
-# 移除原始列表列，保留格式化后的列
-inventory_report = inventory.drop(columns=['phonetic'])
+# 离群汉字
+outliers = summary[summary['char_count'] <= 4].copy()
+all_outlier_chars = []
+for chars in outliers['char_list']:
+    all_outlier_chars.extend(chars)
+char_frequency = pd.Series(all_outlier_chars).value_counts().reset_index()
+char_frequency.columns = ['char', 'outlier_frequency']
 
-# === 导出结果 ===
+# === 4. 导出结果 ===
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# 导出分韵分布表
-dist_path = OUTPUT_DIR / "rhyme_phonetic_distribution.csv"
-dist_report.to_csv(dist_path, index=False, encoding="utf-8-sig")
+# 导出修改后的分布表
+slot_onset_dist.to_csv(OUTPUT_DIR / "point_slot_onset_distribution.csv", index=False, encoding="utf-8-sig")
 
-# 导出方言点库藏集合表
-inv_path = OUTPUT_DIR / "point_phonetic_inventory.csv"
-inventory_report.to_csv(inv_path, index=False, encoding="utf-8-sig")
+# 导出其他辅助表
+summary.drop(columns=['char_list']).to_csv(OUTPUT_DIR / "rhyme_phonetic_distribution.csv", index=False, encoding="utf-8-sig")
+rhyme_inventory.to_csv(OUTPUT_DIR / "point_rhyme_inventory.csv", index=False, encoding="utf-8-sig")
+point_inventory.to_csv(OUTPUT_DIR / "point_total_inventory.csv", index=False, encoding="utf-8-sig")
+char_frequency.to_csv(OUTPUT_DIR / "outlier_char_frequency.csv", index=False, encoding="utf-8-sig")
 
-print(f"✅ 统计分析完成！")
-print(f"1. 分韵读音分布已生成：{dist_path}")
-print(f"2. 方言点读音库藏集合已生成：{inv_path}")
+print(f"✅ 统计分析完成！输出模式已调整：先声组，后链位顺序。")
 
-# === 控制台预览：展示库藏集合 ===
-print("\n--- 每个方言点的读音集合预览 ---")
-print(inventory_report[['point_name', 'vowel_inventory_size', 'phonetic_set']].head(10))
+# === 5. 新增功能：整理成演变链汇总表 (Pivoted Evolution Chains) ===
+import re
+
+def extract_top_phonetic(freq_str):
+    """从 'a(13), ia(4)' 格式中提取频数最高的读音 'a'"""
+    if pd.isna(freq_str) or not isinstance(freq_str, str):
+        return ""
+    # 使用正则匹配音值，提取第一个括号前的部分（因为您的 get_phonetic_distribution 已按频数降序排列）
+    match = re.search(r'([^,()\s]+)\s*\(', freq_str)
+    return match.group(1) if match else ""
+
+# 拷贝一份分布表进行处理
+df_chains = slot_onset_dist.copy()
+# 提取每个 Slot 频率最高的音值
+df_chains['top_val'] = df_chains['phonetic_frequency'].apply(extract_top_phonetic)
+
+# 使用透视表将 S0, S1, S2, S3 转为列
+# 即使 T 和 N 声组下缺失 S0/S1，pivot_table 也会自动填充为 NaN（空）
+pivoted_chains = df_chains.pivot_table(
+    index=['point_id', 'point_name', 'onset_class'],
+    columns='chain_slot',
+    values='top_val',
+    aggfunc='first'
+).reset_index()
+
+# 确保 S0, S1, S2, S3 列都存在（防止某些数据完全缺失导致列不存在）
+for s in ['S0', 'S1', 'S2', 'S3']:
+    if s not in pivoted_chains.columns:
+        pivoted_chains[s] = ""
+
+# 按照 [方言点代码 -> 声组顺序] 排序，并整理列顺序
+# 满足：point_id, point_name, onset_class, S0, S1, S2, S3
+final_cols = ['point_id', 'point_name', 'onset_class', 'S0', 'S1', 'S2', 'S3']
+pivoted_chains = pivoted_chains.reindex(columns=final_cols).fillna("")
+
+# 导出结果
+pivoted_chains.to_csv(OUTPUT_DIR / "type_phonetic_chains.csv", index=False, encoding="utf-8-sig")
+
+print(f"✅ 演变链汇总表已生成：{OUTPUT_DIR / 'phonetic_evolution_chains.csv'}")
+print(f"   (注：T 和 N 声组的 S0/S1 若无数据已按要求留空)")

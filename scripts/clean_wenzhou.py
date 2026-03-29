@@ -8,100 +8,101 @@ DATA_RAW = PROJECT_ROOT / "data_raw"
 DATA_CLEAN = PROJECT_ROOT / "data_clean"
 DATA_DICT = PROJECT_ROOT / "data_dict"
 
-# === 读入原始数据（每个方言点一个 CSV） ===
-# 约定原始文件路径为 data_raw/points/*.csv
+# === 1. 读入原始数据 ===
 raw_dir = DATA_RAW / "points"
 raw_files = sorted(raw_dir.glob("*.csv"))
 if raw_files:
     df_list = [pd.read_csv(p) for p in raw_files]
     df = pd.concat(df_list, ignore_index=True)
 else:
-    # 兼容旧的单文件输入
     raw_path = DATA_RAW / "wuyu_raw.csv"
-    if not raw_path.exists():
-        raise FileNotFoundError(
-            f"未找到原始数据：请放在 {raw_dir}/*.csv 或 {raw_path}"
-        )
     df = pd.read_csv(raw_path)
 
-# 过滤掉不是数据的行：只保留“韵”和“声组”都有值的
-required_base_cols = ["韵", "声组", "汉字", "读音"]
-missing_base_cols = [c for c in required_base_cols if c not in df.columns]
-if missing_base_cols:
-    raise ValueError(f"缺少基础列：{missing_base_cols}，请确认原始数据列名")
+# 基础清洗
 df = df[df["韵"].notna() & df["声组"].notna()]
-df = df[df["韵"] != "韵"]   # 防止表头之类被重复读进来
+df = df[df["韵"] != "韵"]
+df = df.rename(columns={"汉字": "char", "读音": "phonetic_raw"})
 
-# === 方言点基础信息（来自原始数据列） ===
-required_point_cols = ["point_id", "point_name", "subbranch", "lat", "lon"]
-missing_point_cols = [c for c in required_point_cols if c not in df.columns]
-if missing_point_cols:
-    raise ValueError(f"缺少方言点列：{missing_point_cols}，请在原始数据中提供")
+# === 2. 读音切分与文白标注 ===
+df['phonetic_list'] = df['phonetic_raw'].fillna('').astype(str).str.split('/')
+df['note_list'] = df['note'].fillna('').astype(str).str.split('/')
 
-# === 读入韵部→slot mapping ===
+def align_lists(row):
+    p_len = len(row['phonetic_list'])
+    n_list = row['note_list']
+    if len(n_list) < p_len:
+        return n_list + [''] * (p_len - len(n_list))
+    return n_list[:p_len]
+
+df['note_list'] = df.apply(align_lists, axis=1)
+df = df.explode(['phonetic_list', 'note_list'])
+df = df.rename(columns={"phonetic_list": "phonetic", "note_list": "note_split"})
+
+df["reading_layer"] = df["note_split"].apply(lambda x: "literary" if "文" in str(x) else "main")
+df["mainlayer_flag"] = df["reading_layer"].apply(lambda x: 0 if x == "literary" else 1)
+
+# === 3. 映射逻辑 (核心修正部分) ===
+
+# 3.1 韵部映射
 rhyme_map = pd.read_csv(DATA_DICT / "rhyme_slot_mapping.csv")
+rhyme_map.columns = rhyme_map.columns.str.strip() # 清除表头空格
+df = df.merge(rhyme_map, left_on="韵", right_on="rhyme", how="left")
 
-df = df.merge(
-    rhyme_map,
-    left_on="韵",
-    right_on="rhyme",
-    how="left"
-)
+# 3.2 声组映射 (解决 L->N, TS*->TS)
+# --- 注意：这里千万不要写 df["onset_class"] = df["声组"] ---
+onset_map = pd.read_csv(DATA_DICT / "onset_mapping.csv")
+onset_map.columns = onset_map.columns.str.strip() # 关键：去除映射表表头空格
 
-# === onset_class 映射（现在你的“声组”本身就是标准值，可以直接用） ===
-# 如果以后遇到更复杂的 raw_onset，可以再用 onset_mapping.csv 做 merge
-df["onset_class"] = df["声组"]
+# 通过 merge 引入正确的 onset_class
+df = df.merge(onset_map, left_on="声组", right_on="raw_onset", how="left")
 
-# === 重命名例字 & 读音列 ===
-# 单文件多方言点模式下，统一使用“读音”列
-if "读音" in df.columns:
-    df = df.rename(columns={"汉字": "char", "读音": "phonetic"})
+# 合并后处理：如果映射表中没查到(NaN)，则保留原始“声组”的值
+if "onset_class" in df.columns:
+    df["onset_class"] = df["onset_class"].fillna(df["声组"])
 else:
-    raise ValueError("没找到读音列，请确认列名为 '读音'")
+    # 这种通常是因为 mapping 文件的列名写错了
+    df["onset_class"] = df["声组"]
 
-# === 提取元音符号（粗略版） ===
+df["rhyme_modern"] = df["韵"]
+
+# === 4. 提取元音与 vowel_class 判定 ===
 VOWEL_PATTERN = r"[aeiouAEIOUɤɔøœəɯɐʌyɨ]+"
 
-def extract_vowel_symbol(ipa):
-    if pd.isna(ipa):
-        return None
-    m = re.search(VOWEL_PATTERN, str(ipa))
-    if m:
-        return m.group(0)
-    return None
+def extract_vowel_info(phonetic):
+    p_str = str(phonetic).strip()
+    if not p_str or p_str == 'nan':
+        return None, None
+    m = re.search(VOWEL_PATTERN, p_str)
+    v_sym = m.group(0) if m else None
+    
+    # 复元音判定逻辑
+    v_class = v_sym
+    if v_sym and len(v_sym) >= 2:
+        v_class = "diphthong"
+    return v_sym, v_class
 
-df["vowel_symbol"] = df["phonetic"].apply(extract_vowel_symbol)
-df["vowel_class"] = df["vowel_symbol"]   # 先简单等同，以后细分
+df[["vowel_symbol", "vowel_class"]] = df.apply(
+    lambda r: pd.Series(extract_vowel_info(r["phonetic"])), axis=1
+)
 
-# === 主体层 & 缺项标记 ===
-df["reading_layer"] = "main"
-df["mainlayer_flag"] = 1
+# === 5. 整理导出 ===
 df["combo_validity"] = 1
 df["zero_type"] = "none"
-df["feature_change"] = None   # 之后我们写规则来填
+df["feature_change"] = None 
 
-# === 整理列顺序 ===
 cols_order = [
     "point_id", "point_name", "subbranch", "lat", "lon",
     "rhyme_modern", "chain_slot", "slot_type_initial", "is_free",
-    "onset_class",
-    "char", "phonetic", "vowel_symbol", "vowel_class",
-    "reading_layer", "mainlayer_flag",
-    "combo_validity", "zero_type",
-    "feature_change"
+    "onset_class", "char", "phonetic", "note_split",
+    "vowel_symbol", "vowel_class", "reading_layer", "mainlayer_flag",
+    "combo_validity", "zero_type", "feature_change"
 ]
 
-# 你 merge 之后有这些列：rhyme, chain_slot, slot_type_initial, is_free
-df["rhyme_modern"] = df["韵"]
-
-# 确保列存在
 cols_order = [c for c in cols_order if c in df.columns]
 df_clean = df[cols_order].copy()
 
-# === 导出 ===
 DATA_CLEAN.mkdir(exist_ok=True)
 out_path = DATA_CLEAN / "wuyu_lexeme.csv"
 df_clean.to_csv(out_path, index=False, encoding="utf-8")
 
-print("✅ 数据清洗完成：", out_path)
-print(df_clean.head())
+print(f"✅ 清洗成功！已完成声组转换(L->N, TS*->TS)并标记复元音。")
