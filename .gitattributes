@@ -1,0 +1,8 @@
+# 告诉 GitHub 这些 HTML 文件是“生成的”，不计入语言统计
+figs/*.html linguist-generated=true
+
+# 或者如果你想更彻底一点，直接把它们标记为“文档”
+# figs/*.html linguist-documentation=true
+
+# 确保 Python 始终被视为核心
+scripts/*.py linguist-detectable=true
