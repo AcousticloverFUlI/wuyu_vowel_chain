@@ -20,9 +20,14 @@ RHYME_TO_SLOT = {
 df = pd.read_csv(DATA_CLEAN / "wuyu_lexeme.csv")
 weight_dict_df = pd.read_csv(DATA_DICT / "weight_mapping.csv")
 
-# 预处理：剔除不讨论字，归并 TS*
+# 预处理：剔除不讨论字，清理声母类别并归并同类项
 df = df[~df["char"].isin(["靴", "茄"])]
-df["onset_class"] = df["onset_class"].replace("TS*", "TS")
+df["onset_class"] = (
+    df["onset_class"]
+    .astype("string")
+    .str.strip()
+    .replace({"L": "N", "Ts": "TS", "Ts*": "TS", "TS*": "TS"})
+)
 
 # 权重分配：考虑人工标注(O/L)与自动标注(literary)
 df = df.merge(weight_dict_df, on="char", how="left")
@@ -119,6 +124,28 @@ merge_df.to_csv(OUTPUT_DIR / "point_onset_merge_rates.csv", index=False, encodin
 
 with open(OUTPUT_DIR / "summary_hierarchy_report.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(summary_text))
+
+onset_report_text = [
+    "=== 吴语元音后高化链变：声组合并率推力序列报告 ===",
+    "",
+    "【实验说明】",
+    "1. 采用加权期望分布模型，压低文读(0.3)与离群字(0.1)的干扰。",
+    "2. 声母类别已统一清理：L 并入 N，TS* 并入 TS。",
+    "3. 针对低位链环节(S0-S1, S1-S2)，排除 T 组与 N 组的无效格位。",
+    "4. 数值为各方言点合并率均值，数值越高代表相邻链位越趋于合并。",
+    "",
+    "【第一部分】",
+    "1. S0 (佳皆) 与 S1 (麻) 合并序列:",
+    f"   {' > '.join(rank_s0_s1)}",
+    "2. S1 (麻) 与 S2 (歌戈) 合并序列:",
+    f"   {' > '.join(rank_s1_s2)}",
+    "",
+    "【第二部分】",
+    "3. S2 (歌戈) 与 S3 (模) 合并序列:",
+    f"   {' > '.join(rank_s2_s3)}",
+]
+with open(OUTPUT_DIR / "onset_hierarchy_report.txt", "w", encoding="utf-8") as f:
+    f.write("\n".join(onset_report_text))
 
 print(f"✅ 总结式序列报告已生成至: {OUTPUT_DIR / 'summary_hierarchy_report.txt'}")
 print("\n" + "\n".join(summary_text))

@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+import re
 
 # === 路径设置 ===
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -22,6 +23,20 @@ df = df[df["phonetic"].notna()]
 # 参数设置
 target_rhymes = ["歌", "戈", "麻", "模", "佳", "皆"]
 df_filtered = df[df["rhyme_modern"].isin(target_rhymes)].copy()
+
+def split_phonetic(value):
+    if pd.isna(value):
+        return []
+    value = str(value).replace("\u00a0", " ").strip()
+    if not value or value.lower() == "nan":
+        return []
+    if value == "o（uo）":
+        return ["u", "uo"]
+    return [part.strip() for part in value.split("/") if part.strip()]
+
+df_filtered["phonetic"] = df_filtered["phonetic"].apply(split_phonetic)
+df_filtered = df_filtered.explode("phonetic")
+df_filtered = df_filtered[df_filtered["phonetic"].notna() & (df_filtered["phonetic"] != "")]
 
 # 定义 chain_slot 的逻辑顺序，用于后续排序
 slot_order = {"S0": 0, "S1": 1, "S2": 2, "S3": 3}
@@ -96,8 +111,6 @@ char_frequency.to_csv(OUTPUT_DIR / "outlier_char_frequency.csv", index=False, en
 print(f"✅ 统计分析完成！输出模式已调整：先声组，后链位顺序。")
 
 # === 5. 新增功能：整理成演变链汇总表 (Pivoted Evolution Chains) ===
-import re
-
 def extract_top_phonetic(freq_str):
     """从 'a(13), ia(4)' 格式中提取频数最高的读音 'a'"""
     if pd.isna(freq_str) or not isinstance(freq_str, str):
